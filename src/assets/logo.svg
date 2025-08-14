@@ -1,0 +1,8 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="60" cy="60" r="55" fill="#6366F1" stroke="#4F46E5" stroke-width="2"/>
+  <path d="M40 45C40 42.2386 42.2386 40 45 40H75C77.7614 40 80 42.2386 80 45V75C80 77.7614 77.7614 80 75 80H45C42.2386 80 40 77.7614 40 75V45Z" fill="white"/>
+  <circle cx="50" cy="55" r="3" fill="#6366F1"/>
+  <circle cx="70" cy="55" r="3" fill="#6366F1"/>
+  <path d="M45 65C45 62.2386 47.2386 60 50 60H70C72.7614 60 75 62.2386 75 65V70C75 72.7614 72.7614 75 70 75H50C47.2386 75 45 72.7614 45 70V65Z" fill="#6366F1"/>
+  <text x="60" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#6366F1">KETAHARU</text>
+</svg> 

@@ -1,0 +1,16 @@
+{
+  "projects": {
+    "default": "stayfit-ad0e0"
+  },
+  "targets": {
+    "stayfit-ad0e0": {
+      "hosting": {
+        "default": [
+          "SITE_ID",
+          "ketaharu"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
