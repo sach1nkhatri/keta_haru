@@ -1,10 +1,10 @@
 import React from 'react';
 import '../css/Message.css';
 
-const Message = ({ message, isOwnMessage }) => {
+const Message = ({ message, isOwnMessage, senderName, isGroup, isDarkTheme }) => {
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { 
+    return date.toLocaleTimeString([], { 
       hour: '2-digit', 
       minute: '2-digit',
       hour12: true 
@@ -16,23 +16,26 @@ const Message = ({ message, isOwnMessage }) => {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    
+
     if (date.toDateString() === today.toDateString()) {
       return 'Today';
     } else if (date.toDateString() === yesterday.toDateString()) {
       return 'Yesterday';
     } else {
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
-      });
+      return date.toLocaleDateString();
     }
   };
 
   return (
     <div className={`message ${isOwnMessage ? 'own' : 'other'}`}>
+      {isGroup && !isOwnMessage && (
+        <div className="message-sender">
+          <span className="sender-name">{senderName}</span>
+        </div>
+      )}
+      
       <div className="message-content">
-        <div className="message-text">{message.text}</div>
+        <div className="message-text">{message.content}</div>
         <div className="message-meta">
           <span className="message-time">{formatTime(message.timestamp)}</span>
           {isOwnMessage && (
@@ -42,6 +45,7 @@ const Message = ({ message, isOwnMessage }) => {
           )}
         </div>
       </div>
+      
       <div className="message-date">
         {formatDate(message.timestamp)}
       </div>

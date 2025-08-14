@@ -1,16 +1,25 @@
 import React from 'react';
 import '../css/ProfileModal.css';
 
-const ProfileModal = ({ user, onClose }) => {
+const ProfileModal = ({ isOpen, user, onClose, isDarkTheme }) => {
+  // Debug log to check modal state
+  console.log('ProfileModal render:', { isOpen, user: user?.displayName });
+
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) {
       onClose();
     }
   };
 
+  // Don't render if modal is not open
+  if (!isOpen) {
+    console.log('ProfileModal: Not rendering - isOpen is false');
+    return null;
+  }
+
   return (
     <div className="profile-modal-backdrop" onClick={handleBackdropClick}>
-      <div className="profile-modal">
+      <div className={`profile-modal ${isDarkTheme ? 'dark' : ''}`}>
         <div className="modal-header">
           <h2>Profile</h2>
           <button 
@@ -28,11 +37,16 @@ const ProfileModal = ({ user, onClose }) => {
         <div className="modal-content">
           <div className="profile-section">
             <div className="profile-avatar-large">
-              <img src={user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.displayName || 'default'}`} alt="Profile" />
+              <img 
+                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.displayName || 'default'}`} 
+                alt="Profile" 
+              />
             </div>
             <h3 className="profile-name">{user?.displayName || 'User'}</h3>
             <p className="profile-email">{user?.email}</p>
-            <p className="profile-email">Member since {new Date(user?.createdAt || Date.now()).toLocaleDateString()}</p>
+            <p className="profile-email">
+              Member since {new Date(user?.metadata?.creationTime || Date.now()).toLocaleDateString()}
+            </p>
           </div>
 
           <div className="settings-section">
@@ -56,7 +70,7 @@ const ProfileModal = ({ user, onClose }) => {
             <div className="setting-item">
               <span>Dark Mode</span>
               <label className="toggle">
-                <input type="checkbox" />
+                <input type="checkbox" checked={isDarkTheme} readOnly />
                 <span className="slider"></span>
               </label>
             </div>

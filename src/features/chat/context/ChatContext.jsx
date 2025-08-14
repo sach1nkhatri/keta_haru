@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { ref, set, push, onValue, off, get } from 'firebase/database';
+import { 
+  ref, 
+  onValue, 
+  push, 
+  set, 
+  remove, 
+  update 
+} from 'firebase/database';
 import { realtimeDb } from '../../../firebase';
 import { useAuth } from '../../auth/context/AuthContext';
 import Swal from 'sweetalert2';
@@ -20,369 +27,322 @@ export const ChatProvider = ({ children }) => {
   const [friendRequests, setFriendRequests] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [selectedFriend, setSelectedFriend] = useState(null);
-  const [messages, setMessages] = useState({});
-  const [typing, setTyping] = useState({});
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [messages, setMessages] = useState({});
+  const [groupMessages, setGroupMessages] = useState({});
+  const [typing, setTyping] = useState({});
+  const [groups, setGroups] = useState([]);
+  const [groupInvites, setGroupInvites] = useState([]);
 
-  // Listen to friends list when user is authenticated
+  // Listen for friends changes
   useEffect(() => {
     if (!user) return;
 
-    // Listen to friends list
     const friendsRef = ref(realtimeDb, `users/${user.uid}/friends`);
-    const friendsListener = onValue(friendsRef, (snapshot) => {
+    const unsubscribe = onValue(friendsRef, (snapshot) => {
+      const friendsData = [];
       if (snapshot.exists()) {
-        const friendsData = snapshot.val();
-        const friendsList = Object.keys(friendsData).map(friendId => ({
-          uid: friendId,
-          ...friendsData[friendId]
-        }));
-        setFriends(friendsList);
-      } else {
-        setFriends([]);
-      }
-    });
-
-    // Listen to incoming friend requests
-    const requestsRef = ref(realtimeDb, `users/${user.uid}/friendRequests`);
-    const requestsListener = onValue(requestsRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const requestsData = snapshot.val();
-        const requestsList = Object.keys(requestsData).map(requestId => ({
-          id: requestId,
-          ...requestsData[requestId]
-        }));
-        setFriendRequests(requestsList);
-      } else {
-        setFriendRequests([]);
-      }
-    });
-
-    // Listen to pending friend requests (sent by current user)
-    const pendingRef = ref(realtimeDb, `users/${user.uid}/pendingRequests`);
-    const pendingListener = onValue(pendingRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const pendingData = snapshot.val();
-        const pendingList = Object.keys(pendingData).map(requestId => ({
-          id: requestId,
-          ...pendingData[requestId]
-        }));
-        setPendingRequests(pendingList);
-      } else {
-        setPendingRequests([]);
-      }
-    });
-
-    return () => {
-      off(friendsRef, 'value', friendsListener);
-      off(requestsRef, 'value', requestsListener);
-      off(pendingRef, 'value', pendingListener);
-    };
-  }, [user]);
-
-  // Listen to real-time messages from Realtime Database when user is authenticated
-  useEffect(() => {
-    if (!user) return;
-
-    console.log('🔍 Setting up message listener for user:', user.uid);
-
-    // Set up real-time listener for messages
-    const messagesRef = ref(realtimeDb, 'messages');
-    
-    const handleMessagesChange = (snapshot) => {
-      console.log('🔍 Message listener triggered:', snapshot.exists());
-      
-      if (snapshot.exists()) {
-        const messagesData = snapshot.val();
-        console.log('🔍 Raw messages data:', messagesData);
-        
-        const newMessages = {};
-        
-        Object.keys(messagesData).forEach(messageId => {
-          const message = messagesData[messageId];
-          const chatId = message.chatId;
-          
-          if (!newMessages[chatId]) {
-            newMessages[chatId] = [];
-          }
-          newMessages[chatId].push({
-            id: messageId,
-            ...message
+        snapshot.forEach((childSnapshot) => {
+          friendsData.push({
+            uid: childSnapshot.key,
+            ...childSnapshot.val()
           });
         });
-        
-        // Sort messages by timestamp within each chat
-        Object.keys(newMessages).forEach(chatId => {
-          newMessages[chatId].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-        });
-        
-        console.log('🔍 Processed messages:', newMessages);
-        setMessages(newMessages);
-      } else {
-        console.log('🔍 No messages found');
-        setMessages({});
       }
-    };
+      setFriends(friendsData);
+    });
 
-    onValue(messagesRef, handleMessagesChange);
-
-    return () => {
-      off(messagesRef, 'value', handleMessagesChange);
-    };
+    return () => unsubscribe();
   }, [user]);
 
-  // Add typing indicator functionality
-  const startTyping = (friendId) => {
-    if (!user || !friendId) return;
-    
-    const typingRef = ref(realtimeDb, `typing/${friendId}/${user.uid}`);
-    set(typingRef, {
-      userId: user.uid,
-      displayName: user.displayName,
-      timestamp: new Date().toISOString()
+  // Listen for friend requests
+  useEffect(() => {
+    if (!user) return;
+
+    const requestsRef = ref(realtimeDb, `users/${user.uid}/friendRequests`);
+    const unsubscribe = onValue(requestsRef, (snapshot) => {
+      const requestsData = [];
+      if (snapshot.exists()) {
+        snapshot.forEach((childSnapshot) => {
+          requestsData.push({
+            uid: childSnapshot.key,
+            ...childSnapshot.val()
+          });
+        });
+      }
+      setFriendRequests(requestsData);
     });
-  };
 
-  const stopTyping = (friendId) => {
-    if (!user || !friendId) return;
-    
-    const typingRef = ref(realtimeDb, `typing/${friendId}/${user.uid}`);
-    set(typingRef, null);
-  };
+    return () => unsubscribe();
+  }, [user]);
 
-  // Listen to typing indicators
+  // Listen for pending requests
+  useEffect(() => {
+    if (!user) return;
+
+    const pendingRef = ref(realtimeDb, `users/${user.uid}/pendingRequests`);
+    const unsubscribe = onValue(pendingRef, (snapshot) => {
+      const pendingData = [];
+      if (snapshot.exists()) {
+        snapshot.forEach((childSnapshot) => {
+          pendingData.push({
+            uid: childSnapshot.key,
+            ...childSnapshot.val()
+          });
+        });
+      }
+      setPendingRequests(pendingData);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Listen for groups
+  useEffect(() => {
+    if (!user) return;
+
+    const groupsRef = ref(realtimeDb, `users/${user.uid}/groups`);
+    const unsubscribe = onValue(groupsRef, (snapshot) => {
+      const groupsData = [];
+      if (snapshot.exists()) {
+        snapshot.forEach((childSnapshot) => {
+          groupsData.push({
+            groupId: childSnapshot.key,
+            ...childSnapshot.val()
+          });
+        });
+      }
+      setGroups(groupsData);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Listen for group invites
+  useEffect(() => {
+    if (!user) return;
+
+    const invitesRef = ref(realtimeDb, `users/${user.uid}/groupInvites`);
+    const unsubscribe = onValue(invitesRef, (snapshot) => {
+      const invitesData = [];
+      if (snapshot.exists()) {
+        snapshot.forEach((childSnapshot) => {
+          invitesData.push({
+            inviteId: childSnapshot.key,
+            ...childSnapshot.val()
+          });
+        });
+      }
+      setGroupInvites(invitesData);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Listen for messages
+  useEffect(() => {
+    if (!user) return;
+
+    const messagesRef = ref(realtimeDb, 'messages');
+    const unsubscribe = onValue(messagesRef, (snapshot) => {
+      const messagesData = {};
+      if (snapshot.exists()) {
+        snapshot.forEach((chatSnapshot) => {
+          const chatMessages = [];
+          chatSnapshot.forEach((messageSnapshot) => {
+            chatMessages.push({
+              id: messageSnapshot.key,
+              ...messageSnapshot.val()
+            });
+          });
+          // Sort messages by timestamp
+          chatMessages.sort((a, b) => a.timestamp - b.timestamp);
+          messagesData[chatSnapshot.key] = chatMessages;
+        });
+      }
+      setMessages(messagesData);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Listen for group messages
+  useEffect(() => {
+    if (!user) return;
+
+    const groupMessagesRef = ref(realtimeDb, 'groupMessages');
+    const unsubscribe = onValue(groupMessagesRef, (snapshot) => {
+      const groupMessagesData = {};
+      if (snapshot.exists()) {
+        snapshot.forEach((groupSnapshot) => {
+          const groupChatMessages = [];
+          groupSnapshot.forEach((messageSnapshot) => {
+            groupChatMessages.push({
+              id: messageSnapshot.key,
+              ...messageSnapshot.val()
+            });
+          });
+          // Sort messages by timestamp
+          groupChatMessages.sort((a, b) => a.timestamp - b.timestamp);
+          groupMessagesData[groupSnapshot.key] = groupChatMessages;
+        });
+      }
+      setGroupMessages(groupMessagesData);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Listen for typing indicators
   useEffect(() => {
     if (!user) return;
 
     const typingRef = ref(realtimeDb, `typing/${user.uid}`);
-    
-    const handleTypingChange = (snapshot) => {
+    const unsubscribe = onValue(typingRef, (snapshot) => {
+      const typingData = {};
       if (snapshot.exists()) {
-        const typingData = snapshot.val();
-        const newTyping = {};
-        
-        Object.keys(typingData).forEach(typingUserId => {
-          const typingInfo = typingData[typingUserId];
-          // Only show typing if it's recent (within last 5 seconds)
-          const isRecent = (new Date() - new Date(typingInfo.timestamp)) < 5000;
-          if (isRecent) {
-            newTyping[typingUserId] = typingInfo;
+        snapshot.forEach((childSnapshot) => {
+          const typingInfo = childSnapshot.val();
+          // Only show typing if it's recent (within 5 seconds)
+          if (Date.now() - typingInfo.timestamp < 5000) {
+            typingData[childSnapshot.key] = typingInfo;
           }
         });
-        
-        setTyping(newTyping);
-      } else {
-        setTyping({});
       }
-    };
+      setTyping(typingData);
+    });
 
-    onValue(typingRef, handleTypingChange);
-
-    return () => {
-      off(typingRef, 'value', handleTypingChange);
-    };
+    return () => unsubscribe();
   }, [user]);
 
-  // Search for users by display name or email
+  // Search users
   const searchUsers = async (searchTerm) => {
-    if (!searchTerm.trim() || !user) return;
-    
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
     setIsSearching(true);
-    setSearchResults([]);
-
     try {
-      // Get all users and filter locally since Realtime Database doesn't support complex queries like Firestore
       const usersRef = ref(realtimeDb, 'users');
-      
-      const snapshot = await get(usersRef);
-      const results = [];
+      const snapshot = await onValue(usersRef, (snapshot) => {
+        const users = [];
+        if (snapshot.exists()) {
+          snapshot.forEach((childSnapshot) => {
+            const userData = childSnapshot.val();
+            if (childSnapshot.key !== user.uid) {
+              users.push({
+                uid: childSnapshot.key,
+                ...userData
+              });
+            }
+          });
+        }
 
-      if (snapshot.exists()) {
-        const usersData = snapshot.val();
-        
-        Object.keys(usersData).forEach(userId => {
-          const userData = usersData[userId];
-          
-          // Skip current user
-          if (userId === user.uid) return;
-          
-          // Check if already a friend
-          if (isFriend(userId)) return;
-          
-          // Check if there's a pending request
-          if (hasPendingRequest(userId)) return;
-          
-          // Search by display name (case-insensitive)
-          const displayNameMatch = userData.displayName && 
-            userData.displayName.toLowerCase().includes(searchTerm.toLowerCase());
-          
-          // Search by email (case-insensitive)
-          const emailMatch = userData.email && 
-            userData.email.toLowerCase().includes(searchTerm.toLowerCase());
-          
-          if (displayNameMatch || emailMatch) {
-            results.push({
-              uid: userId,
-              displayName: userData.displayName,
-              email: userData.email,
-              avatar: userData.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userData.displayName}`
-            });
-          }
+        // Filter users by displayName or email
+        const filteredUsers = users.filter(userData => {
+          const searchLower = searchTerm.toLowerCase();
+          return (
+            userData.displayName?.toLowerCase().includes(searchLower) ||
+            userData.email?.toLowerCase().includes(searchLower)
+          );
         });
-      }
 
-      setSearchResults(results);
+        // Exclude existing friends and pending requests
+        const existingFriendIds = friends.map(f => f.uid);
+        const pendingRequestIds = pendingRequests.map(p => p.uid);
+        
+        const availableUsers = filteredUsers.filter(userData => 
+          !existingFriendIds.includes(userData.uid) &&
+          !pendingRequestIds.includes(userData.uid)
+        );
+
+        setSearchResults(availableUsers);
+        setIsSearching(false);
+      });
     } catch (error) {
       console.error('Error searching users:', error);
-    } finally {
       setIsSearching(false);
     }
   };
 
-  // Check if user is already a friend
-  const isFriend = (userId) => {
-    return friends.some(friend => friend.uid === userId);
-  };
-
-  // Check if there's a pending request
-  const hasPendingRequest = (userId) => {
-    return pendingRequests.some(request => request.toUserId === userId);
-  };
-
   // Send friend request
-  const sendFriendRequest = async (toUserId, toUserData) => {
-    if (!user || !toUserId) return;
+  const sendFriendRequest = async (targetUserId) => {
+    if (!user) return;
 
     try {
-      const requestId = push(ref(realtimeDb, 'friendRequests')).key;
       const requestData = {
-        fromUserId: user.uid,
-        fromUserDisplayName: user.displayName,
-        fromUserEmail: user.email,
-        toUserId: toUserId,
-        toUserDisplayName: toUserData.displayName,
-        toUserEmail: toUserData.email,
-        status: 'pending',
-        timestamp: new Date().toISOString()
+        from: user.uid,
+        fromDisplayName: user.displayName,
+        fromEmail: user.email,
+        timestamp: Date.now(),
+        status: 'pending'
       };
 
-      // Add to recipient's friend requests
-      await set(ref(realtimeDb, `users/${toUserId}/friendRequests/${requestId}`), requestData);
+      // Add to target user's friend requests
+      await set(ref(realtimeDb, `users/${targetUserId}/friendRequests/${user.uid}`), requestData);
       
-      // Add to sender's pending requests
-      await set(ref(realtimeDb, `users/${user.uid}/pendingRequests/${requestId}`), requestData);
-
-      // Show success notification
-      await Swal.fire({
-        icon: 'success',
-        title: 'Friend Request Sent!',
-        text: `Friend request sent to ${toUserData.displayName}`,
-        timer: 2000,
-        showConfirmButton: false,
-        confirmButtonColor: '#6366f1'
+      // Add to current user's pending requests
+      await set(ref(realtimeDb, `users/${user.uid}/pendingRequests/${targetUserId}`), {
+        to: targetUserId,
+        timestamp: Date.now(),
+        status: 'pending'
       });
 
-      return { success: true };
+      // Remove from search results
+      setSearchResults(prev => prev.filter(u => u.uid !== targetUserId));
     } catch (error) {
       console.error('Error sending friend request:', error);
-      
-      // Show error notification
-      await Swal.fire({
-        icon: 'error',
-        title: 'Failed to Send Request',
-        text: 'An error occurred while sending the friend request. Please try again.',
-        confirmButtonColor: '#ef4444'
-      });
-
-      return { success: false, error: 'Failed to send friend request' };
     }
   };
 
   // Accept friend request
-  const acceptFriendRequest = async (requestId, requestData) => {
+  const acceptFriendRequest = async (requestUserId) => {
     if (!user) return;
 
     try {
-      const { fromUserId, fromUserDisplayName, fromUserEmail } = requestData;
+      const requestData = friendRequests.find(r => r.uid === requestUserId);
+      if (!requestData) return;
 
-      // Add to current user's friends list
-      await set(ref(realtimeDb, `users/${user.uid}/friends/${fromUserId}`), {
-        uid: fromUserId,
-        displayName: fromUserDisplayName,
-        email: fromUserEmail,
-        addedAt: new Date().toISOString()
+      // Add to current user's friends
+      await set(ref(realtimeDb, `users/${user.uid}/friends/${requestUserId}`), {
+        displayName: requestData.fromDisplayName,
+        email: requestData.fromEmail,
+        addedAt: Date.now()
       });
 
-      // Add current user to requester's friends list
-      await set(ref(realtimeDb, `users/${fromUserId}/friends/${user.uid}`), {
-        uid: user.uid,
+      // Add current user to requester's friends
+      await set(ref(realtimeDb, `users/${requestUserId}/friends/${user.uid}`), {
         displayName: user.displayName,
         email: user.email,
-        addedAt: new Date().toISOString()
+        addedAt: Date.now()
       });
 
-      // Remove the request from both users
-      await set(ref(realtimeDb, `users/${user.uid}/friendRequests/${requestId}`), null);
-      await set(ref(realtimeDb, `users/${fromUserId}/pendingRequests/${requestId}`), null);
-
-      // Show success notification
-      await Swal.fire({
-        icon: 'success',
-        title: 'Friend Added!',
-        text: `${fromUserDisplayName} is now your friend!`,
-        timer: 2000,
-        showConfirmButton: false,
-        confirmButtonColor: '#6366f1'
-      });
-
-      return { success: true };
+      // Remove friend request
+      await remove(ref(realtimeDb, `users/${user.uid}/friendRequests/${requestUserId}`));
+      
+      // Remove pending request from requester
+      await remove(ref(realtimeDb, `users/${requestUserId}/pendingRequests/${user.uid}`));
     } catch (error) {
       console.error('Error accepting friend request:', error);
-      
-      // Show error notification
-      await Swal.fire({
-        icon: 'error',
-        title: 'Failed to Accept Request',
-        text: 'An error occurred while accepting the friend request. Please try again.',
-        confirmButtonColor: '#ef4444'
-      });
-
-      return { success: false, error: 'Failed to accept friend request' };
     }
   };
 
   // Reject friend request
-  const rejectFriendRequest = async (requestId) => {
+  const rejectFriendRequest = async (requestUserId) => {
     if (!user) return;
 
     try {
-      // Remove the request from current user
-      await set(ref(realtimeDb, `users/${user.uid}/friendRequests/${requestId}`), null);
-
-      // Show success notification
-      await Swal.fire({
-        icon: 'success',
-        title: 'Request Rejected',
-        text: 'Friend request has been rejected.',
-        timer: 2000,
-        showConfirmButton: false,
-        confirmButtonColor: '#6366f1'
-      });
-
-      return { success: true };
+      // Remove friend request
+      await remove(ref(realtimeDb, `users/${user.uid}/friendRequests/${requestUserId}`));
+      
+      // Remove pending request from requester
+      await remove(ref(realtimeDb, `users/${requestUserId}/pendingRequests/${user.uid}`));
     } catch (error) {
       console.error('Error rejecting friend request:', error);
-      
-      // Show error notification
-      await Swal.fire({
-        icon: 'error',
-        title: 'Failed to Reject Request',
-        text: 'An error occurred while rejecting the friend request. Please try again.',
-        confirmButtonColor: '#ef4444'
-      });
-
-      return { success: false, error: 'Failed to reject friend request' };
     }
   };
 
@@ -391,158 +351,283 @@ export const ChatProvider = ({ children }) => {
     if (!user) return;
 
     try {
-      // Show confirmation dialog
-      const result = await Swal.fire({
-        title: 'Remove Friend?',
-        text: "Are you sure you want to remove this friend? This action cannot be undone.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#ef4444',
-        cancelButtonColor: '#64748b',
-        confirmButtonText: 'Yes, remove!'
-      });
-
-      if (!result.isConfirmed) {
-        return { success: false, error: 'Cancelled' };
-      }
-
-      // Remove from current user's friends list
-      await set(ref(realtimeDb, `users/${user.uid}/friends/${friendId}`), null);
+      // Remove from current user's friends
+      await remove(ref(realtimeDb, `users/${user.uid}/friends/${friendId}`));
       
-      // Remove current user from friend's friends list
-      await set(ref(realtimeDb, `users/${friendId}/friends/${user.uid}`), null);
-
-      // Clear messages with this friend
-      setMessages(prev => {
-        const newMessages = { ...prev };
-        delete newMessages[`${user.uid}_${friendId}`];
-        delete newMessages[`${friendId}_${user.uid}`];
-        return newMessages;
-      });
-
+      // Remove current user from friend's friends
+      await remove(ref(realtimeDb, `users/${friendId}/friends/${user.uid}`));
+      
       // Clear selected friend if it's the removed one
       if (selectedFriend?.uid === friendId) {
         setSelectedFriend(null);
       }
-
-      // Show success notification
-      await Swal.fire({
-        icon: 'success',
-        title: 'Friend Removed',
-        text: 'Friend has been removed successfully.',
-        timer: 2000,
-        showConfirmButton: false,
-        confirmButtonColor: '#6366f1'
-      });
-
-      return { success: true };
     } catch (error) {
       console.error('Error removing friend:', error);
-      
-      // Show error notification
-      await Swal.fire({
-        icon: 'error',
-        title: 'Failed to Remove Friend',
-        text: 'An error occurred while removing the friend. Please try again.',
-        confirmButtonColor: '#ef4444'
-      });
-
-      return { success: false, error: 'Failed to remove friend' };
     }
   };
 
-  const sendMessage = async (friendId, text) => {
-    if (!text.trim() || !user) return;
-
-    const chatId = [user.uid, friendId].sort().join('_');
-    console.log('🔍 Sending message:', {
-      friendId,
-      text,
-      chatId,
-      userUid: user.uid
-    });
-
-    const newMessage = {
-      text: text.trim(),
-      sender: user.uid,
-      senderName: user.displayName || 'User',
-      chatId,
-      timestamp: new Date().toISOString(),
-      read: false
-    };
+  // Send message
+  const sendMessage = async (content, recipientId, isGroup = false) => {
+    if (!user || !content.trim()) return;
 
     try {
-      // Add message to Realtime Database
-      const messagesRef = ref(realtimeDb, 'messages');
-      const newMessageRef = push(messagesRef);
-      await set(newMessageRef, newMessage);
-      
-      // Update the message with the generated ID
-      newMessage.id = newMessageRef.key;
-      console.log('🔍 Message sent to DB with ID:', newMessageRef.key);
-      
-      // Add to local state immediately for instant feedback
-      setMessages(prev => {
-        const updatedMessages = {
+      const messageData = {
+        content: content.trim(),
+        sender: user.uid,
+        senderDisplayName: user.displayName,
+        timestamp: Date.now(),
+        read: false
+      };
+
+      if (isGroup) {
+        // Send group message
+        const groupMessageRef = ref(realtimeDb, `groupMessages/${recipientId}`);
+        await push(groupMessageRef, messageData);
+        
+        // Update local state immediately for instant feedback
+        setGroupMessages(prev => ({
           ...prev,
-          [chatId]: [...(prev[chatId] || []), { ...newMessage, id: newMessageRef.key }]
-        };
-        console.log('🔍 Updated local messages:', updatedMessages);
-        return updatedMessages;
-      });
-      
-      // Stop typing when message is sent
-      stopTyping(friendId);
-      
+          [recipientId]: [...(prev[recipientId] || []), { ...messageData, id: Date.now() }]
+        }));
+      } else {
+        // Send direct message
+        const chatId = [user.uid, recipientId].sort().join('_');
+        const messageRef = ref(realtimeDb, `messages/${chatId}`);
+        await push(messageRef, messageData);
+        
+        // Update local state immediately for instant feedback
+        setMessages(prev => ({
+          ...prev,
+          [chatId]: [...(prev[chatId] || []), { ...messageData, id: Date.now() }]
+        }));
+      }
+
+      // Stop typing
+      stopTyping(recipientId, isGroup);
     } catch (error) {
       console.error('Error sending message:', error);
-      // Fallback to local state if database fails
-      setMessages(prev => ({
-        ...prev,
-        [chatId]: [...(prev[chatId] || []), { ...newMessage, id: Date.now() }]
-      }));
     }
   };
 
-  const markMessagesAsRead = async (friendId) => {
-    const chatId = [user.uid, friendId].sort().join('_');
-    
-    // Mark messages as read locally
-    setMessages(prev => ({
-      ...prev,
-      [chatId]: (prev[chatId] || []).map(msg => ({
-        ...msg,
-        read: msg.sender === friendId ? true : msg.read
-      }))
-    }));
+  // Mark messages as read
+  const markMessagesAsRead = async (friendId, isGroup = false) => {
+    if (!user) return;
 
-    // Update read status in database for messages from friend
     try {
-      const messagesRef = ref(realtimeDb, 'messages');
-      const snapshot = await get(messagesRef);
-      
-      if (snapshot.exists()) {
-        const messagesData = snapshot.val();
-        const updatePromises = [];
-        
-        Object.keys(messagesData).forEach(messageId => {
-          const message = messagesData[messageId];
-          if (message.chatId === chatId && message.sender === friendId && !message.read) {
-            updatePromises.push(
-              set(ref(realtimeDb, `messages/${messageId}`), {
-                ...message,
-                read: true
-              })
-            );
+      if (isGroup) {
+        // Mark group messages as read
+        const groupMessagesRef = ref(realtimeDb, `groupMessages/${friendId}`);
+        const snapshot = await onValue(groupMessagesRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const updates = {};
+            snapshot.forEach((childSnapshot) => {
+              const message = childSnapshot.val();
+              if (message.sender !== user.uid && !message.read) {
+                updates[`${childSnapshot.key}/read`] = true;
+              }
+            });
+            if (Object.keys(updates).length > 0) {
+              update(groupMessagesRef, updates);
+            }
           }
         });
-        
-        if (updatePromises.length > 0) {
-          await Promise.all(updatePromises);
-        }
+      } else {
+        // Mark direct messages as read
+        const chatId = [user.uid, friendId].sort().join('_');
+        const messagesRef = ref(realtimeDb, `messages/${chatId}`);
+        const snapshot = await onValue(messagesRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const updates = {};
+            snapshot.forEach((childSnapshot) => {
+              const message = childSnapshot.val();
+              if (message.sender !== user.uid && !message.read) {
+                updates[`${childSnapshot.key}/read`] = true;
+              }
+            });
+            if (Object.keys(updates).length > 0) {
+              update(messagesRef, updates);
+            }
+          }
+        });
       }
     } catch (error) {
-      console.error('Error updating read status:', error);
+      console.error('Error marking messages as read:', error);
+    }
+  };
+
+  // Start typing
+  const startTyping = (recipientId, isGroup = false) => {
+    if (!user) return;
+
+    const typingData = {
+      timestamp: Date.now(),
+      isGroup
+    };
+
+    if (isGroup) {
+      set(ref(realtimeDb, `typing/${recipientId}/${user.uid}`), typingData);
+    } else {
+      set(ref(realtimeDb, `typing/${recipientId}/${user.uid}`), typingData);
+    }
+  };
+
+  // Stop typing
+  const stopTyping = (recipientId, isGroup = false) => {
+    if (!user) return;
+
+    if (isGroup) {
+      remove(ref(realtimeDb, `typing/${recipientId}/${user.uid}`));
+    } else {
+      remove(ref(realtimeDb, `typing/${recipientId}/${user.uid}`));
+    }
+  };
+
+  // Create group
+  const createGroup = async (groupName, memberIds) => {
+    if (!user || !groupName.trim() || memberIds.length === 0) return;
+
+    try {
+      const groupData = {
+        name: groupName.trim(),
+        createdBy: user.uid,
+        createdAt: Date.now(),
+        members: {
+          [user.uid]: {
+            displayName: user.displayName,
+            email: user.email,
+            role: 'admin',
+            joinedAt: Date.now()
+          }
+        }
+      };
+
+      // Add other members
+      memberIds.forEach(memberId => {
+        groupData.members[memberId] = {
+          displayName: friends.find(f => f.uid === memberId)?.displayName || 'Unknown',
+          email: friends.find(f => f.uid === memberId)?.email || 'unknown@email.com',
+          role: 'member',
+          joinedAt: Date.now()
+        };
+      });
+
+      // Create group
+      const groupRef = ref(realtimeDb, 'groups');
+      const newGroupRef = push(groupRef);
+      await set(newGroupRef, groupData);
+
+      const groupId = newGroupRef.key;
+
+      // Add group to all members' user profiles
+      const memberUpdates = {};
+      Object.keys(groupData.members).forEach(memberId => {
+        memberUpdates[`users/${memberId}/groups/${groupId}`] = {
+          name: groupData.name,
+          role: groupData.members[memberId].role,
+          joinedAt: groupData.members[memberId].joinedAt
+        };
+      });
+
+      await update(ref(realtimeDb), memberUpdates);
+
+      return groupId;
+    } catch (error) {
+      console.error('Error creating group:', error);
+      throw error;
+    }
+  };
+
+  // Leave group
+  const leaveGroup = async (groupId) => {
+    if (!user) return;
+
+    try {
+      // Remove from user's groups
+      await remove(ref(realtimeDb, `users/${user.uid}/groups/${groupId}`));
+      
+      // Remove from group members
+      await remove(ref(realtimeDb, `groups/${groupId}/members/${user.uid}`));
+      
+      // Clear selected group if it's the current one
+      if (selectedGroup?.groupId === groupId) {
+        setSelectedGroup(null);
+      }
+    } catch (error) {
+      console.error('Error leaving group:', error);
+    }
+  };
+
+  // Invite user to group
+  const inviteToGroup = async (groupId, targetUserId) => {
+    if (!user) return;
+
+    try {
+      const inviteData = {
+        groupId,
+        groupName: groups.find(g => g.groupId === groupId)?.name || 'Unknown Group',
+        from: user.uid,
+        fromDisplayName: user.displayName,
+        timestamp: Date.now(),
+        status: 'pending'
+      };
+
+      // Add group invite to target user
+      await set(ref(realtimeDb, `users/${targetUserId}/groupInvites/${groupId}`), inviteData);
+    } catch (error) {
+      console.error('Error inviting user to group:', error);
+    }
+  };
+
+  // Accept group invite
+  const acceptGroupInvite = async (groupId) => {
+    if (!user) return;
+
+    try {
+      const inviteData = groupInvites.find(invite => invite.groupId === groupId);
+      if (!inviteData) return;
+
+      // Get group data
+      const groupRef = ref(realtimeDb, `groups/${groupId}`);
+      const groupSnapshot = await onValue(groupRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const groupData = snapshot.val();
+          
+          // Add user to group members
+          const memberData = {
+            displayName: user.displayName,
+            email: user.email,
+            role: 'member',
+            joinedAt: Date.now()
+          };
+
+          // Update group members
+          set(ref(realtimeDb, `groups/${groupId}/members/${user.uid}`), memberData);
+          
+          // Add group to user's groups
+          set(ref(realtimeDb, `users/${user.uid}/groups/${groupId}`), {
+            name: groupData.name,
+            role: 'member',
+            joinedAt: Date.now()
+          });
+          
+          // Remove group invite
+          remove(ref(realtimeDb, `users/${user.uid}/groupInvites/${groupId}`));
+        }
+      });
+    } catch (error) {
+      console.error('Error accepting group invite:', error);
+    }
+  };
+
+  // Reject group invite
+  const rejectGroupInvite = async (groupId) => {
+    if (!user) return;
+
+    try {
+      // Remove group invite
+      await remove(ref(realtimeDb, `users/${user.uid}/groupInvites/${groupId}`));
+    } catch (error) {
+      console.error('Error rejecting group invite:', error);
     }
   };
 
@@ -551,11 +636,16 @@ export const ChatProvider = ({ children }) => {
     friendRequests,
     pendingRequests,
     selectedFriend,
-    setSelectedFriend,
-    messages,
-    typing,
+    selectedGroup,
     searchResults,
     isSearching,
+    messages,
+    groupMessages,
+    typing,
+    groups,
+    groupInvites,
+    setSelectedFriend,
+    setSelectedGroup,
     searchUsers,
     sendFriendRequest,
     acceptFriendRequest,
@@ -564,7 +654,12 @@ export const ChatProvider = ({ children }) => {
     sendMessage,
     markMessagesAsRead,
     startTyping,
-    stopTyping
+    stopTyping,
+    createGroup,
+    leaveGroup,
+    inviteToGroup,
+    acceptGroupInvite,
+    rejectGroupInvite
   };
 
   return (

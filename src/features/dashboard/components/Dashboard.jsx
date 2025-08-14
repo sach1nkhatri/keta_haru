@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../auth/context/AuthContext';
+import { useChat } from '../../chat/context/ChatContext';
 import Sidebar from './Sidebar';
 import ChatWindow from './ChatWindow';
 import ProfileModal from './ProfileModal';
@@ -7,38 +8,59 @@ import '../css/Dashboard.css';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { selectedFriend, selectedGroup } = useChat();
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const handleToggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed);
-  };
+  // Debug log for modal state
+  console.log('Dashboard render:', { showProfileModal, user: user?.displayName });
 
   const handleToggleTheme = () => {
-    setIsDarkTheme(!isDarkTheme);
-    // Add dark theme class to body for global styling
-    if (!isDarkTheme) {
+    const newTheme = !isDarkTheme;
+    setIsDarkTheme(newTheme);
+    
+    if (newTheme) {
       document.body.classList.add('dark-theme');
     } else {
       document.body.classList.remove('dark-theme');
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
+  const handleToggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
   };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const getSelectedContact = () => {
+    if (selectedFriend) {
+      return { ...selectedFriend, type: 'friend' };
+    }
+    if (selectedGroup) {
+      return { ...selectedGroup, type: 'group' };
+    }
+    return null;
+  };
+
+  const selectedContact = getSelectedContact();
 
   return (
     <div className={`dashboard ${isDarkTheme ? 'dark' : ''}`}>
       <header className="dashboard-header">
         <div className="header-left">
-          <button 
+          <button
             className="sidebar-toggle"
             onClick={handleToggleSidebar}
-            aria-label="Toggle sidebar"
+            title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="3" y1="6" x2="21" y2="6"></line>
               <line x1="3" y1="12" x2="21" y2="12"></line>
               <line x1="3" y1="18" x2="21" y2="18"></line>
@@ -48,72 +70,76 @@ const Dashboard = () => {
         </div>
         
         <div className="header-right">
-          <button 
+          <div className="user-info">
+            <span className="user-name">{user?.displayName || 'User'}</span>
+          </div>
+          
+          <button
             className="theme-toggle"
             onClick={handleToggleTheme}
-            aria-label="Toggle theme"
+            title={isDarkTheme ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           >
             {isDarkTheme ? (
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="5"></circle>
-                <line x1="12" y1="1" x2="12" y2="3"></line>
-                <line x1="12" y1="21" x2="12" y2="23"></line>
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                <line x1="1" y1="12" x2="3" y2="12"></line>
-                <line x1="21" y1="12" x2="23" y2="12"></line>
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                <circle cx="12" cy="12" r="5" />
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
               </svg>
             ) : (
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
               </svg>
             )}
           </button>
           
-          <button 
+          <button
             className="profile-button"
-            onClick={() => setShowProfileModal(true)}
-            aria-label="Open profile"
+            onClick={() => {
+              console.log('Profile button clicked, setting showProfileModal to true');
+              setShowProfileModal(true);
+            }}
+            title="Profile"
           >
-            <img 
-              src={user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.displayName || 'default'}`} 
-              alt="Profile" 
-              className="profile-avatar"
+            <img
+              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.displayName || 'User'}`}
+              alt={user?.displayName || 'User'}
             />
-            <span className="profile-name">{user?.displayName || 'User'}</span>
           </button>
           
-          <button 
+          <button
             className="logout-button"
             onClick={handleLogout}
-            aria-label="Logout"
+            title="Logout"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-              <polyline points="16,17 21,12 16,7"></polyline>
-              <line x1="21" y1="12" x2="9" y2="12"></line>
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16,17 21,12 16,7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
           </button>
         </div>
       </header>
-      
+
       <div className="dashboard-content">
         <Sidebar 
-          collapsed={sidebarCollapsed} 
+          isDarkTheme={isDarkTheme} 
+          collapsed={sidebarCollapsed}
           onToggle={handleToggleSidebar}
+        />
+        <ChatWindow 
+          contact={selectedContact}
           isDarkTheme={isDarkTheme}
         />
-        <ChatWindow />
       </div>
-      
-      {showProfileModal && (
-        <ProfileModal 
-          user={user} 
-          onClose={() => setShowProfileModal(false)} 
-        />
-      )}
+
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => {
+          console.log('ProfileModal onClose called, setting showProfileModal to false');
+          setShowProfileModal(false);
+        }}
+        user={user}
+        isDarkTheme={isDarkTheme}
+      />
     </div>
   );
 };
