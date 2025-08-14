@@ -169,6 +169,25 @@ const LandingPage = () => {
               </div>
             </div>
           </div>
+
+          {/* Footer */}
+          <footer className="landing-footer">
+            <div className="footer-content">
+              <div className="footer-brand">
+                <div className="footer-logo">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    <path d="M13 8H7"></path>
+                    <path d="M17 12H7"></path>
+                  </svg>
+                </div>
+                <span className="footer-brand-name">Ketaharu</span>
+              </div>
+              <div className="footer-copyright">
+                © 2025 | KetaHaru | Built by <a href="https://sachin.bio" target="_blank" rel="noopener noreferrer" className="footer-link">Sachin Khatri</a>. All Rights Reserved.
+              </div>
+            </div>
+          </footer>
         </div>
       </div>
     </div>
