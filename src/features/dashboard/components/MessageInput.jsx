@@ -1,17 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useChat } from '../../chat/context/ChatContext';
 import '../css/MessageInput.css';
 
 const MessageInput = ({ contact, isDarkTheme }) => {
   const [message, setMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const { sendMessage, startTyping, stopTyping } = useChat();
+  
+  const typingTimeoutRef = useRef(null);
+  const isTypingRef = useRef(false);
 
   useEffect(() => {
-    let typingTimeout;
-    
-    if (message.trim() && !isTyping) {
-      setIsTyping(true);
+    // Clear any existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    if (message.trim() && !isTypingRef.current) {
+      isTypingRef.current = true;
       if (contact.type === 'group') {
         startTyping(contact.groupId, true);
       } else {
@@ -20,8 +25,8 @@ const MessageInput = ({ contact, isDarkTheme }) => {
     }
 
     if (message.trim()) {
-      typingTimeout = setTimeout(() => {
-        setIsTyping(false);
+      typingTimeoutRef.current = setTimeout(() => {
+        isTypingRef.current = false;
         if (contact.type === 'group') {
           stopTyping(contact.groupId, true);
         } else {
@@ -29,7 +34,7 @@ const MessageInput = ({ contact, isDarkTheme }) => {
         }
       }, 2000);
     } else {
-      setIsTyping(false);
+      isTypingRef.current = false;
       if (contact.type === 'group') {
         stopTyping(contact.groupId, true);
       } else {
@@ -38,24 +43,49 @@ const MessageInput = ({ contact, isDarkTheme }) => {
     }
 
     return () => {
-      if (typingTimeout) {
-        clearTimeout(typingTimeout);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
     };
-  }, [message, contact, isTyping, startTyping, stopTyping]);
+  }, [message, contact, startTyping, stopTyping]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!message.trim() || !contact) return;
+    console.log('=== handleSubmit called ===');
+    console.log('Message:', message);
+    console.log('Contact:', contact);
+    
+    if (!message.trim() || !contact) {
+      console.log('Early return - no message or contact');
+      return;
+    }
 
     try {
+      console.log('About to send message...');
+      
+      // Stop typing immediately when sending message
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      
+      isTypingRef.current = false;
       if (contact.type === 'group') {
+        stopTyping(contact.groupId, true);
+      } else {
+        stopTyping(contact.uid, false);
+      }
+      
+      if (contact.type === 'group') {
+        console.log('Sending group message to:', contact.groupId);
         await sendMessage(message, contact.groupId, true);
       } else {
+        console.log('Sending direct message to:', contact.uid);
         await sendMessage(message, contact.uid, false);
       }
+      
+      console.log('Message sent successfully, clearing input');
       setMessage('');
-      setIsTyping(false);
     } catch (error) {
       console.error('Error sending message:', error);
     }

@@ -10,7 +10,7 @@ const Sidebar = ({ isDarkTheme, collapsed, onToggle }) => {
   const { user } = useAuth();
   const {
     friends, friendRequests, pendingRequests, groups, groupInvites,
-    searchResults, isSearching, selectedFriend, selectedGroup,
+    searchResults, selectedFriend, selectedGroup,
     setSelectedFriend, setSelectedGroup, searchUsers, sendFriendRequest,
     acceptFriendRequest, rejectFriendRequest, removeFriend,
     acceptGroupInvite, rejectGroupInvite, leaveGroup

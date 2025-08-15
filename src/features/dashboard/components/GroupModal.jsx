@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { useChat } from '../../chat/context/ChatContext';
-import { useAuth } from '../../auth/context/AuthContext';
 import '../css/GroupModal.css';
 
 const GroupModal = ({ isOpen, onClose, mode = 'create', group = null }) => {
-  const { user } = useAuth();
-  const { friends, createGroup, leaveGroup, inviteToGroup } = useChat();
+  const { friends, createGroup } = useChat();
   
   const [groupName, setGroupName] = useState(group?.name || '');
   const [selectedMembers, setSelectedMembers] = useState([]);

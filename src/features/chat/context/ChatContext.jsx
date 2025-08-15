@@ -5,11 +5,12 @@ import {
   push, 
   set, 
   remove, 
-  update 
+  update,
+  get
 } from 'firebase/database';
 import { realtimeDb } from '../../../firebase';
 import { useAuth } from '../../auth/context/AuthContext';
-import Swal from 'sweetalert2';
+// import Swal from 'sweetalert2'; // Commented out as not currently used
 
 const ChatContext = createContext();
 
@@ -228,41 +229,40 @@ export const ChatProvider = ({ children }) => {
     setIsSearching(true);
     try {
       const usersRef = ref(realtimeDb, 'users');
-      const snapshot = await onValue(usersRef, (snapshot) => {
-        const users = [];
-        if (snapshot.exists()) {
-          snapshot.forEach((childSnapshot) => {
-            const userData = childSnapshot.val();
-            if (childSnapshot.key !== user.uid) {
-              users.push({
-                uid: childSnapshot.key,
-                ...userData
-              });
-            }
-          });
-        }
-
-        // Filter users by displayName or email
-        const filteredUsers = users.filter(userData => {
-          const searchLower = searchTerm.toLowerCase();
-          return (
-            userData.displayName?.toLowerCase().includes(searchLower) ||
-            userData.email?.toLowerCase().includes(searchLower)
-          );
+      const snapshot = await get(usersRef);
+      const users = [];
+      if (snapshot.exists()) {
+        snapshot.forEach((childSnapshot) => {
+          const userData = childSnapshot.val();
+          if (childSnapshot.key !== user.uid) {
+            users.push({
+              uid: childSnapshot.key,
+              ...userData
+            });
+          }
         });
+      }
 
-        // Exclude existing friends and pending requests
-        const existingFriendIds = friends.map(f => f.uid);
-        const pendingRequestIds = pendingRequests.map(p => p.uid);
-        
-        const availableUsers = filteredUsers.filter(userData => 
-          !existingFriendIds.includes(userData.uid) &&
-          !pendingRequestIds.includes(userData.uid)
+      // Filter users by displayName or email
+      const filteredUsers = users.filter(userData => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          userData.displayName?.toLowerCase().includes(searchLower) ||
+          userData.email?.toLowerCase().includes(searchLower)
         );
-
-        setSearchResults(availableUsers);
-        setIsSearching(false);
       });
+
+      // Exclude existing friends and pending requests
+      const existingFriendIds = friends.map(f => f.uid);
+      const pendingRequestIds = pendingRequests.map(p => p.uid);
+      
+      const availableUsers = filteredUsers.filter(userData => 
+        !existingFriendIds.includes(userData.uid) &&
+        !pendingRequestIds.includes(userData.uid)
+      );
+
+      setSearchResults(availableUsers);
+      setIsSearching(false);
     } catch (error) {
       console.error('Error searching users:', error);
       setIsSearching(false);
@@ -368,7 +368,17 @@ export const ChatProvider = ({ children }) => {
 
   // Send message
   const sendMessage = async (content, recipientId, isGroup = false) => {
-    if (!user || !content.trim()) return;
+    console.log('=== sendMessage called ===');
+    console.log('Content:', content);
+    console.log('RecipientId:', recipientId);
+    console.log('IsGroup:', isGroup);
+    console.log('Timestamp:', Date.now());
+    console.log('User:', user?.uid);
+    
+    if (!user || !content.trim()) {
+      console.log('Early return - no user or empty content');
+      return;
+    }
 
     try {
       const messageData = {
@@ -379,29 +389,23 @@ export const ChatProvider = ({ children }) => {
         read: false
       };
 
+      console.log('Sending message to Firebase:', messageData);
+
       if (isGroup) {
         // Send group message
         const groupMessageRef = ref(realtimeDb, `groupMessages/${recipientId}`);
         await push(groupMessageRef, messageData);
-        
-        // Update local state immediately for instant feedback
-        setGroupMessages(prev => ({
-          ...prev,
-          [recipientId]: [...(prev[recipientId] || []), { ...messageData, id: Date.now() }]
-        }));
+        console.log('Group message sent to Firebase');
       } else {
         // Send direct message
         const chatId = [user.uid, recipientId].sort().join('_');
         const messageRef = ref(realtimeDb, `messages/${chatId}`);
         await push(messageRef, messageData);
-        
-        // Update local state immediately for instant feedback
-        setMessages(prev => ({
-          ...prev,
-          [chatId]: [...(prev[chatId] || []), { ...messageData, id: Date.now() }]
-        }));
+        console.log('Direct message sent to Firebase, chatId:', chatId);
       }
 
+      console.log('Message sent successfully');
+      
       // Stop typing
       stopTyping(recipientId, isGroup);
     } catch (error) {
@@ -417,38 +421,36 @@ export const ChatProvider = ({ children }) => {
       if (isGroup) {
         // Mark group messages as read
         const groupMessagesRef = ref(realtimeDb, `groupMessages/${friendId}`);
-        const snapshot = await onValue(groupMessagesRef, (snapshot) => {
-          if (snapshot.exists()) {
-            const updates = {};
-            snapshot.forEach((childSnapshot) => {
-              const message = childSnapshot.val();
-              if (message.sender !== user.uid && !message.read) {
-                updates[`${childSnapshot.key}/read`] = true;
-              }
-            });
-            if (Object.keys(updates).length > 0) {
-              update(groupMessagesRef, updates);
+        const snapshot = await get(groupMessagesRef);
+        if (snapshot.exists()) {
+          const updates = {};
+          snapshot.forEach((childSnapshot) => {
+            const message = childSnapshot.val();
+            if (message.sender !== user.uid && !message.read) {
+              updates[`${childSnapshot.key}/read`] = true;
             }
+          });
+          if (Object.keys(updates).length > 0) {
+            await update(groupMessagesRef, updates);
           }
-        });
+        }
       } else {
         // Mark direct messages as read
         const chatId = [user.uid, friendId].sort().join('_');
         const messagesRef = ref(realtimeDb, `messages/${chatId}`);
-        const snapshot = await onValue(messagesRef, (snapshot) => {
-          if (snapshot.exists()) {
-            const updates = {};
-            snapshot.forEach((childSnapshot) => {
-              const message = childSnapshot.val();
-              if (message.sender !== user.uid && !message.read) {
-                updates[`${childSnapshot.key}/read`] = true;
-              }
-            });
-            if (Object.keys(updates).length > 0) {
-              update(messagesRef, updates);
+        const snapshot = await get(messagesRef);
+        if (snapshot.exists()) {
+          const updates = {};
+          snapshot.forEach((childSnapshot) => {
+            const message = childSnapshot.val();
+            if (message.sender !== user.uid && !message.read) {
+              updates[`${childSnapshot.key}/read`] = true;
             }
+          });
+          if (Object.keys(updates).length > 0) {
+            await update(messagesRef, updates);
           }
-        });
+        }
       }
     } catch (error) {
       console.error('Error marking messages as read:', error);
@@ -588,32 +590,31 @@ export const ChatProvider = ({ children }) => {
 
       // Get group data
       const groupRef = ref(realtimeDb, `groups/${groupId}`);
-      const groupSnapshot = await onValue(groupRef, (snapshot) => {
-        if (snapshot.exists()) {
-          const groupData = snapshot.val();
-          
-          // Add user to group members
-          const memberData = {
-            displayName: user.displayName,
-            email: user.email,
-            role: 'member',
-            joinedAt: Date.now()
-          };
+      const groupSnapshot = await get(groupRef);
+      if (groupSnapshot.exists()) {
+        const groupData = groupSnapshot.val();
+        
+        // Add user to group members
+        const memberData = {
+          displayName: user.displayName,
+          email: user.email,
+          role: 'member',
+          joinedAt: Date.now()
+        };
 
-          // Update group members
-          set(ref(realtimeDb, `groups/${groupId}/members/${user.uid}`), memberData);
-          
-          // Add group to user's groups
-          set(ref(realtimeDb, `users/${user.uid}/groups/${groupId}`), {
-            name: groupData.name,
-            role: 'member',
-            joinedAt: Date.now()
-          });
-          
-          // Remove group invite
-          remove(ref(realtimeDb, `users/${user.uid}/groupInvites/${groupId}`));
-        }
-      });
+        // Update group members
+        await set(ref(realtimeDb, `groups/${groupId}/members/${user.uid}`), memberData);
+        
+        // Add group to user's groups
+        await set(ref(realtimeDb, `users/${user.uid}/groups/${groupId}`), {
+          name: groupData.name,
+          role: 'member',
+          joinedAt: Date.now()
+        });
+        
+        // Remove group invite
+        await remove(ref(realtimeDb, `users/${user.uid}/groupInvites/${groupId}`));
+      }
     } catch (error) {
       console.error('Error accepting group invite:', error);
     }
