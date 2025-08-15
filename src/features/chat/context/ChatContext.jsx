@@ -105,17 +105,64 @@ export const ChatProvider = ({ children }) => {
     if (!user) return;
 
     const groupsRef = ref(realtimeDb, `users/${user.uid}/groups`);
-    const unsubscribe = onValue(groupsRef, (snapshot) => {
-      const groupsData = [];
+    const unsubscribe = onValue(groupsRef, async (snapshot) => {
       if (snapshot.exists()) {
+        // Collect all async operations
+        const groupPromises = [];
+        const userGroupDataMap = new Map();
+        
         snapshot.forEach((childSnapshot) => {
-          groupsData.push({
-            groupId: childSnapshot.key,
-            ...childSnapshot.val()
-          });
+          const userGroupData = childSnapshot.val();
+          const groupId = childSnapshot.key;
+          userGroupDataMap.set(groupId, userGroupData);
+          
+          // Create promise for fetching full group data
+          const groupPromise = get(ref(realtimeDb, `groups/${groupId}`))
+            .then((fullGroupSnapshot) => {
+              if (fullGroupSnapshot.exists()) {
+                const fullGroupData = fullGroupSnapshot.val();
+                return {
+                  groupId,
+                  ...userGroupData,
+                  createdBy: fullGroupData.createdBy,
+                  name: fullGroupData.name || userGroupData.name
+                };
+              } else {
+                // Fallback to user group data if full group data not found
+                return {
+                  groupId,
+                  ...userGroupData
+                };
+              }
+            })
+            .catch((error) => {
+              console.error('Error fetching full group data:', error);
+              // Fallback to user group data
+              return {
+                groupId,
+                ...userGroupData
+              };
+            });
+          
+          groupPromises.push(groupPromise);
         });
+        
+        // Wait for all async operations to complete
+        try {
+          const groupsData = await Promise.all(groupPromises);
+          setGroups(groupsData);
+        } catch (error) {
+          console.error('Error loading groups:', error);
+          // Fallback to user group data only
+          const fallbackGroups = Array.from(userGroupDataMap.entries()).map(([groupId, userGroupData]) => ({
+            groupId,
+            ...userGroupData
+          }));
+          setGroups(fallbackGroups);
+        }
+      } else {
+        setGroups([]);
       }
-      setGroups(groupsData);
     });
 
     return () => unsubscribe();
@@ -632,6 +679,118 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
+  // Get group members
+  const getGroupMembers = async (groupId) => {
+    if (!groupId) return [];
+
+    try {
+      const groupRef = ref(realtimeDb, `groups/${groupId}/members`);
+      const snapshot = await get(groupRef);
+      
+      if (snapshot.exists()) {
+        const members = [];
+        snapshot.forEach((childSnapshot) => {
+          members.push({
+            uid: childSnapshot.key,
+            ...childSnapshot.val()
+          });
+        });
+        return members;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error getting group members:', error);
+      throw error;
+    }
+  };
+
+  // Add member to group
+  const addMemberToGroup = async (groupId, memberId) => {
+    if (!user || !groupId || !memberId) return;
+
+    try {
+      // Check if user is a member of the group
+      const userGroupRef = ref(realtimeDb, `users/${user.uid}/groups/${groupId}`);
+      const userGroupSnapshot = await get(userGroupRef);
+      
+      if (!userGroupSnapshot.exists()) {
+        throw new Error('You are not a member of this group');
+      }
+
+      // Get friend data
+      const friendRef = ref(realtimeDb, `users/${memberId}`);
+      const friendSnapshot = await get(friendRef);
+      
+      if (!friendSnapshot.exists()) {
+        throw new Error('User not found');
+      }
+
+      const friendData = friendSnapshot.val();
+
+      // Add member to group
+      const memberData = {
+        displayName: friendData.displayName,
+        email: friendData.email,
+        role: 'member',
+        joinedAt: Date.now()
+      };
+
+      await set(ref(realtimeDb, `groups/${groupId}/members/${memberId}`), memberData);
+
+      // Add group to user's groups
+      await set(ref(realtimeDb, `users/${memberId}/groups/${groupId}`), {
+        name: groups.find(g => g.groupId === groupId)?.name || 'Unknown Group',
+        role: 'member',
+        joinedAt: Date.now()
+      });
+
+    } catch (error) {
+      console.error('Error adding member to group:', error);
+      throw error;
+    }
+  };
+
+  // Remove member from group
+  const removeMemberFromGroup = async (groupId, memberId) => {
+    if (!user || !groupId || !memberId) return;
+
+    try {
+      // Check if user is admin of the group
+      const userGroupRef = ref(realtimeDb, `users/${user.uid}/groups/${groupId}`);
+      const userGroupSnapshot = await get(userGroupRef);
+      
+      if (!userGroupSnapshot.exists()) {
+        throw new Error('You are not a member of this group');
+      }
+
+      const userRole = userGroupSnapshot.val().role;
+      if (userRole !== 'admin') {
+        throw new Error('Only admins can remove members');
+      }
+
+      // Check if trying to remove the group creator
+      const groupRef = ref(realtimeDb, `groups/${groupId}`);
+      const groupSnapshot = await get(groupRef);
+      
+      if (groupSnapshot.exists()) {
+        const groupData = groupSnapshot.val();
+        if (groupData.createdBy === memberId) {
+          throw new Error('Cannot remove the group creator');
+        }
+      }
+
+      // Remove member from group
+      await remove(ref(realtimeDb, `groups/${groupId}/members/${memberId}`));
+
+      // Remove group from user's groups
+      await remove(ref(realtimeDb, `users/${memberId}/groups/${groupId}`));
+
+    } catch (error) {
+      console.error('Error removing member from group:', error);
+      throw error;
+    }
+  };
+
   const value = {
     friends,
     friendRequests,
@@ -660,7 +819,10 @@ export const ChatProvider = ({ children }) => {
     leaveGroup,
     inviteToGroup,
     acceptGroupInvite,
-    rejectGroupInvite
+    rejectGroupInvite,
+    getGroupMembers,
+    addMemberToGroup,
+    removeMemberFromGroup
   };
 
   return (
