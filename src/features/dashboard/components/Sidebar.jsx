@@ -10,7 +10,7 @@ const Sidebar = ({ isDarkTheme, collapsed, onToggle, isMobileOpen, onMobileClose
   const { user } = useAuth();
   const {
     friends, friendRequests, pendingRequests, groups, groupInvites,
-    searchResults, selectedFriend, selectedGroup,
+    searchResults, selectedFriend, selectedGroup, isSearching,
     setSelectedFriend, setSelectedGroup, searchUsers, sendFriendRequest,
     acceptFriendRequest, rejectFriendRequest, removeFriend,
     acceptGroupInvite, rejectGroupInvite, leaveGroup
@@ -33,8 +33,12 @@ const Sidebar = ({ isDarkTheme, collapsed, onToggle, isMobileOpen, onMobileClose
   }, []);
 
   const handleSearch = async (term) => {
+    console.log('handleSearch called with term:', term);
     if (term.trim()) {
+      console.log('Calling searchUsers with:', term);
       await searchUsers(term);
+    } else {
+      console.log('Search term is empty, clearing results');
     }
   };
 
@@ -164,8 +168,19 @@ const Sidebar = ({ isDarkTheme, collapsed, onToggle, isMobileOpen, onMobileClose
                 isDarkTheme={isDarkTheme}
               />
               
-              {searchResults.length > 0 && (
+              {/* Show loading state */}
+              {isSearching && (
+                <div className="search-loading">
+                  <p>Searching...</p>
+                </div>
+              )}
+              
+              {/* Show search results */}
+              {searchResults.length > 0 && !isSearching && (
                 <div className="search-results">
+                  <div className="search-results-header">
+                    <span>Found {searchResults.length} user(s)</span>
+                  </div>
                   {searchResults.map(user => (
                     <div key={user.uid} className="search-result-item">
                       <div className="search-result-info">
@@ -186,6 +201,13 @@ const Sidebar = ({ isDarkTheme, collapsed, onToggle, isMobileOpen, onMobileClose
                       </button>
                     </div>
                   ))}
+                </div>
+              )}
+              
+              {/* Show no results message */}
+              {searchTerm && searchResults.length === 0 && !isSearching && (
+                <div className="search-no-results">
+                  <p>No users found matching "{searchTerm}"</p>
                 </div>
               )}
             </div>

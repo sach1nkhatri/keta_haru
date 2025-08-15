@@ -203,6 +203,50 @@
   background: #0f172a;
 }
 
+.search-results-header {
+  padding: 0.75rem;
+  border-bottom: 1px solid #f3f4f6;
+  background: #f9fafb;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.sidebar.dark .search-results-header {
+  border-bottom-color: #334155;
+  background: #1e293b;
+  color: #9ca3af;
+}
+
+.search-loading {
+  margin-top: 1rem;
+  text-align: center;
+  padding: 1rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.sidebar.dark .search-loading {
+  color: #9ca3af;
+}
+
+.search-no-results {
+  margin-top: 1rem;
+  text-align: center;
+  padding: 1rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+  background: #f9fafb;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.sidebar.dark .search-no-results {
+  color: #9ca3af;
+  background: #1e293b;
+  border-color: #334155;
+}
+
 .search-result-item {
   display: flex;
   align-items: center;
@@ -790,10 +834,41 @@
     gap: 0.25rem;
   }
 
-  /* Ensure content is scrollable on mobile */
+  /* Enhanced mobile spacing */
   .sidebar-content {
     padding: 1.5rem;
     padding-top: 0.5rem;
+  }
+
+  /* Increase spacing between sections on mobile */
+  .search-section,
+  .friend-requests-section,
+  .pending-requests-section,
+  .friends-section,
+  .group-invites-section,
+  .groups-section {
+    margin-bottom: 2rem;
+  }
+
+  /* Increase spacing between individual items on mobile */
+  .contact-item {
+    margin: 0 0.5rem 1rem 0.5rem;
+  }
+
+  .friend-request-item,
+  .pending-request-item,
+  .group-invite-item,
+  .group-item {
+    margin-bottom: 1rem;
+  }
+
+  /* Ensure last items don't have bottom margin */
+  .friends-section .contact-item:last-child,
+  .friend-requests-section .friend-request-item:last-child,
+  .pending-requests-section .pending-request-item:last-child,
+  .group-invites-section .group-invite-item:last-child,
+  .groups-section .group-item:last-child {
+    margin-bottom: 0;
   }
 }
 
@@ -803,7 +878,7 @@
   }
 
   .sidebar-content {
-    padding: 0.75rem;
+    padding: 1rem;
   }
 
   .tab-button {
@@ -815,12 +890,24 @@
     padding: 0.375rem;
   }
 
+  /* Maintain spacing on very small screens */
+  .search-section,
+  .friend-requests-section,
+  .pending-requests-section,
+  .friends-section,
+  .group-invites-section,
+  .groups-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .contact-item,
   .search-result-item,
   .friend-request-item,
   .pending-request-item,
   .group-invite-item,
   .group-item {
-    padding: 0.5rem;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
   }
 
   .request-info img,
@@ -828,5 +915,15 @@
   .group-avatar {
     width: 28px;
     height: 28px;
+  }
+
+  /* Ensure proper spacing for section headers on small screens */
+  .friend-requests-section h3,
+  .pending-requests-section h3,
+  .friends-section h3,
+  .group-invites-section h3,
+  .groups-section h3 {
+    margin: 0 0 0.75rem 0;
+    padding-top: 0.25rem;
   }
 } 

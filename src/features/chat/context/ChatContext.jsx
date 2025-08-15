@@ -273,14 +273,28 @@ export const ChatProvider = ({ children }) => {
       return;
     }
 
+    if (!user) {
+      console.log('No user logged in, cannot search');
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    console.log('Searching for:', searchTerm);
     setIsSearching(true);
     try {
       const usersRef = ref(realtimeDb, 'users');
+      console.log('Fetching users from path:', 'users');
+      
       const snapshot = await get(usersRef);
+      console.log('Snapshot exists:', snapshot.exists());
+      console.log('Snapshot has children:', snapshot.hasChildren());
+      
       const users = [];
       if (snapshot.exists()) {
         snapshot.forEach((childSnapshot) => {
           const userData = childSnapshot.val();
+          console.log('User data found:', childSnapshot.key, userData);
           if (childSnapshot.key !== user.uid) {
             users.push({
               uid: childSnapshot.key,
@@ -290,29 +304,43 @@ export const ChatProvider = ({ children }) => {
         });
       }
 
+      console.log('All users found:', users.length);
+
       // Filter users by displayName or email
       const filteredUsers = users.filter(userData => {
         const searchLower = searchTerm.toLowerCase();
-        return (
+        const matches = (
           userData.displayName?.toLowerCase().includes(searchLower) ||
           userData.email?.toLowerCase().includes(searchLower)
         );
+        console.log(`User ${userData.displayName} (${userData.email}) matches:`, matches);
+        return matches;
       });
+
+      console.log('Filtered users:', filteredUsers.length);
 
       // Exclude existing friends and pending requests
       const existingFriendIds = friends.map(f => f.uid);
       const pendingRequestIds = pendingRequests.map(p => p.uid);
+      
+      console.log('Existing friend IDs:', existingFriendIds);
+      console.log('Pending request IDs:', pendingRequestIds);
       
       const availableUsers = filteredUsers.filter(userData => 
         !existingFriendIds.includes(userData.uid) &&
         !pendingRequestIds.includes(userData.uid)
       );
 
+      console.log('Available users (after filtering friends/requests):', availableUsers.length);
+      console.log('Final search results:', availableUsers);
+
       setSearchResults(availableUsers);
       setIsSearching(false);
     } catch (error) {
       console.error('Error searching users:', error);
+      console.error('Error details:', error.message, error.code);
       setIsSearching(false);
+      setSearchResults([]);
     }
   };
 
