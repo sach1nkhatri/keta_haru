@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../auth/context/AuthContext';
 import { useChat } from '../../chat/context/ChatContext';
 import SearchBar from './SearchBar';
 import ContactItem from './ContactItem';
@@ -7,7 +6,6 @@ import GroupModal from './GroupModal';
 import '../css/Sidebar.css';
 
 const Sidebar = ({ isDarkTheme, collapsed, onToggle, isMobileOpen, onMobileClose }) => {
-  const { user } = useAuth();
   const {
     friends, friendRequests, pendingRequests, groups, groupInvites,
     searchResults, selectedFriend, selectedGroup, isSearching,
@@ -345,15 +343,15 @@ const Sidebar = ({ isDarkTheme, collapsed, onToggle, isMobileOpen, onMobileClose
                     onClick={() => handleSelectGroup(group)}
                   >
                     <div className="group-avatar">
-                                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                          <circle cx="9" cy="7" r="4" />
-                          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                        </svg>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
                     </div>
                     <div className="group-info">
-                      <div className="group-name">{group.name}</div>
+                      <div className="group-name">{group.name || 'Unnamed Group'}</div>
                       <div className="group-role">{group.role}</div>
                     </div>
                     <div className="group-actions">
