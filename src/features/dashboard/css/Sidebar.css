@@ -688,6 +688,11 @@
     z-index: 100;
     transform: translateX(-100%);
     transition: transform 0.3s ease;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  }
+
+  .sidebar.dark {
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
   }
 
   .sidebar.open {
@@ -703,11 +708,54 @@
     align-items: center;
     justify-content: space-between;
     padding: 1rem;
+    position: relative;
+    min-height: 60px;
+  }
+
+  /* Mobile Close Button */
+  .mobile-close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 10;
+  }
+
+  .mobile-close-btn:hover {
+    background: #dc2626;
+    transform: scale(1.1);
+  }
+
+  .sidebar.dark .mobile-close-btn {
+    background: #f87171;
+    color: #1e293b;
+  }
+
+  .sidebar.dark .mobile-close-btn:hover {
+    background: #fca5a5;
+  }
+
+  .sidebar-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    flex: 1;
+    text-align: center;
   }
 
   .sidebar-tabs {
     flex: 1;
     margin: 0 1rem;
+    max-width: 200px;
   }
 
   .create-group-btn {
@@ -729,6 +777,12 @@
   .invite-actions {
     flex-direction: column;
     gap: 0.25rem;
+  }
+
+  /* Ensure content is scrollable on mobile */
+  .sidebar-content {
+    padding: 1rem;
+    padding-top: 0.5rem;
   }
 }
 

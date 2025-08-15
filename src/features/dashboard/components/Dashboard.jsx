@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../auth/context/AuthContext';
 import { useChat } from '../../chat/context/ChatContext';
 import Sidebar from './Sidebar';
@@ -12,6 +12,19 @@ const Dashboard = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Debug log for modal state
   console.log('Dashboard render:', { showProfileModal, user: user?.displayName });
@@ -28,7 +41,17 @@ const Dashboard = () => {
   };
 
   const handleToggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed);
+    // On mobile, toggle the mobile sidebar
+    if (isMobile) {
+      setIsMobileSidebarOpen(!isMobileSidebarOpen);
+    } else {
+      // On desktop, toggle the collapsed state
+      setSidebarCollapsed(!sidebarCollapsed);
+    }
+  };
+
+  const handleCloseMobileSidebar = () => {
+    setIsMobileSidebarOpen(false);
   };
 
   const handleLogout = async () => {
@@ -58,7 +81,7 @@ const Dashboard = () => {
           <button
             className="sidebar-toggle"
             onClick={handleToggleSidebar}
-            title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+            title={isMobile ? 'Toggle Sidebar' : (sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar')}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -120,10 +143,17 @@ const Dashboard = () => {
       </header>
 
       <div className="dashboard-content">
+        {/* Mobile Sidebar Overlay */}
+        {isMobileSidebarOpen && (
+          <div className="mobile-sidebar-overlay" onClick={handleCloseMobileSidebar}></div>
+        )}
+        
         <Sidebar 
           isDarkTheme={isDarkTheme} 
           collapsed={sidebarCollapsed}
           onToggle={handleToggleSidebar}
+          isMobileOpen={isMobileSidebarOpen}
+          onMobileClose={handleCloseMobileSidebar}
         />
         <ChatWindow 
           contact={selectedContact}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../auth/context/AuthContext';
 import { useChat } from '../../chat/context/ChatContext';
 import SearchBar from './SearchBar';
@@ -6,7 +6,7 @@ import ContactItem from './ContactItem';
 import GroupModal from './GroupModal';
 import '../css/Sidebar.css';
 
-const Sidebar = ({ isDarkTheme, collapsed, onToggle }) => {
+const Sidebar = ({ isDarkTheme, collapsed, onToggle, isMobileOpen, onMobileClose }) => {
   const { user } = useAuth();
   const {
     friends, friendRequests, pendingRequests, groups, groupInvites,
@@ -19,6 +19,18 @@ const Sidebar = ({ isDarkTheme, collapsed, onToggle }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('friends');
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const handleSearch = async (term) => {
     if (term.trim()) {
@@ -38,11 +50,19 @@ const Sidebar = ({ isDarkTheme, collapsed, onToggle }) => {
   const handleSelectFriend = (friend) => {
     setSelectedFriend(friend);
     setSelectedGroup(null);
+    // Close mobile sidebar when selecting a contact
+    if (isMobile && onMobileClose) {
+      onMobileClose();
+    }
   };
 
   const handleSelectGroup = (group) => {
     setSelectedGroup(group);
     setSelectedFriend(null);
+    // Close mobile sidebar when selecting a contact
+    if (isMobile && onMobileClose) {
+      onMobileClose();
+    }
   };
 
   const handleLeaveGroup = async (groupId) => {
@@ -92,8 +112,17 @@ const Sidebar = ({ isDarkTheme, collapsed, onToggle }) => {
   }
 
   return (
-    <aside className={`sidebar ${isDarkTheme ? 'dark' : ''}`}>
+    <aside className={`sidebar ${isDarkTheme ? 'dark' : ''} ${isMobileOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
+        {/* Mobile Close Button */}
+        {isMobile && (
+          <button className="mobile-close-btn" onClick={onMobileClose}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+        
         <h2>Chat</h2>
         <div className="sidebar-tabs">
           <button
@@ -294,12 +323,12 @@ const Sidebar = ({ isDarkTheme, collapsed, onToggle }) => {
                     onClick={() => handleSelectGroup(group)}
                   >
                     <div className="group-avatar">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                        <circle cx="9" cy="7" r="4" />
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                      </svg>
+                                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                          <circle cx="9" cy="7" r="4" />
+                          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                        </svg>
                     </div>
                     <div className="group-info">
                       <div className="group-name">{group.name}</div>

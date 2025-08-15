@@ -204,6 +204,22 @@
     width: 28px;
     height: 28px;
   }
+
+  /* Mobile Sidebar Overlay */
+  .mobile-sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99;
+    cursor: pointer;
+  }
+
+  .dashboard.dark .mobile-sidebar-overlay {
+    background: rgba(0, 0, 0, 0.7);
+  }
 }
 
 @media (max-width: 480px) {
